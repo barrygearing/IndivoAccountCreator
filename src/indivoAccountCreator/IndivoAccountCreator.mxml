@@ -1,0 +1,1107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication xmlns:fx="http://ns.adobe.com/mxml/2009" 
+					   xmlns:s="library://ns.adobe.com/flex/spark" 
+					   xmlns:mx="library://ns.adobe.com/flex/mx"
+					   applicationComplete="initApp()"
+					   implements="indivoAccountCreator.IResultLogger"
+					   width="1280"
+					   height="700">
+	<fx:Script>
+		<![CDATA[
+		import com.daveoncode.logging.LogFileTarget;
+
+		import mx.controls.Alert;
+		import mx.core.Window;
+
+		import mx.events.FlexNativeMenuEvent;
+
+		import mx.logging.ILogger;
+		import mx.logging.Log;
+		import mx.logging.LogEventLevel;
+		import mx.logging.targets.TraceTarget;
+		import mx.utils.StringUtil;
+
+		import org.indivo.client.*;
+
+		private const xmlFilter:FileFilter = new FileFilter("XML Files (xml)", "*.xml;");
+		private static const JANITOR_USERNAME:String = "janitor";
+
+		private var _admin:Admin;
+		private var _accountDataBuilder:AccountDataBuilder;
+		private var _accountCreator:AccountCreator;
+		private var _demographicsCreator:DemographicsCreator;
+		private var _shareCreator:ShareCreator;
+
+		private var _adminConsumerKey:String = "indivoAccountCreator";
+		private var _adminConsumerSecret:String = "indivoAccountCreator_secret93452";
+		private var _adminAppEmail:String = "indivoAccountCreator@apps.indivo.org";
+		private var _phaConsumerKey:String = "indivoAccountCreator";
+		private var _phaConsumerSecret:String = "indivoAccountCreator_secret93452";
+		//		private var _collaboRhythmConsumerSecret:String = "collaboRhythmChrome_secret93452";
+		private var _collaboRhythmConsumerSecret:String = null;
+		private var _baseUrl:String = "http://records.media.mit.edu:8000";
+
+		public var sourceFile:File; // The source data sourceFile
+		[Bindable]
+		public var sourceXml:XML; // The XML data
+
+		protected var logger:ILogger;
+		private var _cumulativeResults:DocumentCreationResults = new DocumentCreationResults();
+		private var _results:DocumentCreationResults = new DocumentCreationResults();
+
+		private var _settings:Settings;
+		private var _settingsFileStore:SettingsFileStore = new SettingsFileStore();
+
+		private var _isProcessingAll:Boolean = false;
+		private var _accountsToCreate:Vector.<XML>;
+
+		/**
+		 * Called when the application is rendered. The method points the sourceFile File object
+		 * to the appropriate file in the application store directory (unique directory for this application and user),
+		 * or the application directory if the first file does not exist.
+		 * It then calls the readXML() method, which reads the XML data.
+		 */
+		public function initSourceData():void
+		{
+			_settingsFileStore.readSettings();
+			_settings = _settingsFileStore.settings;
+
+			stage.nativeWindow.addEventListener(Event.CLOSING, windowClosingHandler);
+
+			if (_settings && _settings.accountDataPath && _settings.accountDataPath.length > 0)
+			{
+				sourceFile = new File(_settings.accountDataPath);
+				if (!sourceFile.exists)
+				{
+					logResult("Previous account data file \"" + _settings.accountDataPath + "\" could not be loaded.");
+					sourceFile = null;
+				}
+			}
+
+			if (sourceFile == null)
+				sourceFile = resolveUserFileOrApplicationResourceFile("account data.xml");
+
+			readXML();
+		}
+
+		/**
+		 * Called when the application is first rendered, and when the user clicks the Save button.
+		 * If the source data file *does* exist (the application has been run previously), the method
+		 * sets up a FileStream object and reads the XML data, and once the data is read it is processed.
+		 * If the file does not exist, the method calls the saveData() method which creates the file.
+		 */
+		private function readXML():void
+		{
+			accountDataFilePath.text = sourceFile.nativePath;
+
+			sourceXml = readXmlFile(sourceFile);
+			if (sourceXml)
+			{
+				processXMLData();
+				logResult("Loaded source data from \"" + sourceFile.nativePath + "\"");
+			}
+			else
+			{
+				saveData();
+				logResult("Created new source data file \"" + sourceFile.nativePath + "\"");
+			}
+			logResult("Indivo Server Base URL: " + _baseUrl);
+			_admin = new Admin(_adminConsumerKey, _adminConsumerSecret, _baseUrl);
+		}
+
+		private static function readXmlFile(sourceFile:File):XML
+		{
+			var xml:XML;
+			if (sourceFile.exists)
+			{
+				var stream:FileStream = new FileStream();
+				stream.open(sourceFile, FileMode.READ);
+				XML.ignoreComments = false;
+				XML.ignoreWhitespace = false;
+				XML.prettyPrinting = false;
+				var fileString:String = stream.readUTFBytes(stream.bytesAvailable);
+				xml = new XML(fileString);
+				stream.close();
+			}
+			return xml;
+		}
+
+		/**
+		 * Called when the window is closing (and the closing event is dispatched.
+		 */
+		private function windowClosingHandler(event:Event):void
+		{
+			saveData();
+		}
+
+		/**
+		 * Called when the user clicks the Save button or when the window
+		 * is closing.
+		 */
+		private function saveData():void
+		{
+			createXMLData();
+			saveAccountData();
+		}
+
+		/**
+		 * Called after the data from the prefs file has been read. The readUTFBytes() reads
+		 * the data as UTF-8 text, and the XML() function converts the text to XML. The x, y,
+		 * width, and height properties of the main window are then updated based on the XML data.
+		 */
+		private function processXMLData():void
+		{
+			if (sourceXml.indivoServerBaseURL.length() == 1 && sourceXml.indivoServerBaseURL.hasSimpleContent())
+				_baseUrl = sourceXml.indivoServerBaseURL.toString();
+
+			if (sourceXml.indivoServerConsumerKey.length() == 1 && sourceXml.indivoServerConsumerKey.hasSimpleContent())
+			{
+				_adminConsumerSecret = sourceXml.indivoServerConsumerKey.toString();
+				_phaConsumerSecret = sourceXml.indivoServerConsumerKey.toString();
+				_collaboRhythmConsumerSecret = sourceXml.collaboRhythmIndivoServerConsumerKey.toString();
+			}
+		}
+
+		/**
+		 * Creates the XML object with data based on the window state
+		 * and the current time.
+		 */
+		private function createXMLData():void
+		{
+			if (sourceXml == null)
+				sourceXml = <dataroot/>;
+
+			sourceXml.indivoServerBaseURL = _baseUrl;
+			sourceXml.saveDate = new Date().toString();
+		}
+
+		/**
+		 * Called when the NativeWindow closing event is dispatched. The method
+		 * converts the XML data to a string, adds the XML declaration to the beginning
+		 * of the string, and replaces line ending characters with the platform-
+		 * specific line ending character. Then sets up and uses the stream object to
+		 * write the data.
+		 */
+		private function saveAccountData():void
+		{
+			saveXmlFile(sourceXml, sourceFile);
+		}
+
+		private function initApp():void
+		{
+			initLogging();
+
+			initSourceData();
+		}
+
+		protected function initLogging():void
+		{
+			// The log file will be placed under applicationStorageDirectory folder
+			var path:String = File.applicationStorageDirectory.resolvePath("IndivoAccountCreator.log").nativePath;
+
+			var targetFile:File = new File(path);
+
+			// get LogFileTarget's instance (LogFileTarget is a singleton)
+			var logTarget:LogFileTarget = LogFileTarget.getInstance();
+
+			logTarget.file = targetFile;
+
+			// optional (default to "MM/DD/YY")
+			//			target.dateFormat = "DD/MM/YY";
+
+			// optional  (default to 1024)
+			//			target.sizeLimit = 2048;
+
+			// Trace all (default Flex's framework features)
+			//			target.filters = ["*"];
+			//			target.level = LogEventLevel.ALL;
+
+			/* Log only messages for the classes in the collaboRhythm.workstation.* packages. */
+//			logTarget.filters=["collaboRhythm.workstation.*"];
+
+			/* Log all log levels. */
+			logTarget.level = LogEventLevel.ALL;
+
+			/* Add date, time, category, and log level to the output. */
+			//			logTarget.includeDate = true;
+			//			logTarget.includeTime = true;
+			//			logTarget.includeCategory = true;
+			//			logTarget.includeLevel = true;
+
+			/* Begin logging. */
+			Log.addTarget(logTarget);
+
+			Log.addTarget(new TraceTarget());
+
+			logger = Log.getLogger(getQualifiedClassName(this).replace("::", "."));
+		}
+
+
+		private function createTestAccount(username:String):void
+		{
+			_accountDataBuilder = new AccountDataBuilder();
+			_accountDataBuilder.buildTestUserData(username);
+
+			createAccountCreator();
+
+			_accountCreator.createAccount();
+
+		}
+
+		private function createAccount(shouldCreateRecord:Boolean = true, createRecordOnly:Boolean = false):void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+				if (selectedItem.recordId == null || selectedItem.recordId.length() == 0 || selectedItem.recordId.toString() == "")
+					createOneAccount(selectedItem, shouldCreateRecord, accountCreationCompleteHandler,
+									 createRecordOnly);
+				else
+					selectedItem.status = "No action taken. Record ID for selected row must be empty.";
+			}
+		}
+
+		private function deleteRecord():void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+				if (selectedItem.recordId == null || selectedItem.recordId.length() == 0 || selectedItem.recordId.toString() == "")
+					selectedItem.status = "No action taken. Record ID for selected row must not be empty.";
+				else
+					deleteOneRecord(selectedItem);
+			}
+		}
+
+		private function deleteOneRecord(accountSourceXml:XML):void
+		{
+			var pha:Pha = new Pha(_phaConsumerKey, _phaConsumerSecret, _baseUrl);
+
+			var janitorAccountSourceXml:XML = sourceXml.AccountSource.(username == JANITOR_USERNAME)[0];
+
+			if (janitorAccountSourceXml != null && janitorAccountSourceXml.accountId != null && janitorAccountSourceXml.accountId.length() != 0)
+			{
+				var recordDeleter:RecordDeleter = new RecordDeleter();
+				recordDeleter.resultLogger = this;
+				recordDeleter.pha = pha;
+				recordDeleter.admin = _admin;
+				recordDeleter.source = accountSourceXml;
+				recordDeleter.oldShareAccountId = accountSourceXml.shareAccountId.toString();
+				recordDeleter.janitorAccountId = janitorAccountSourceXml.accountId.toString();
+				recordDeleter.janitorUsername = janitorAccountSourceXml.username.toString();
+				recordDeleter.janitorPassword = janitorAccountSourceXml.password.toString();
+
+				recordDeleter.performTask();
+			}
+		}
+
+		private function createOneAccount(accountSourceXml:XML, shouldCreateRecord:Boolean = true,
+										  listener:Function = null, createRecordOnly:Boolean = false):void
+		{
+//				accountSourceXml.recordId = "test1";
+
+			//this.statusText
+
+			_accountDataBuilder = new AccountDataBuilder();
+			_accountDataBuilder.buildDataFromSource(accountSourceXml);
+			createAccountCreator();
+			_accountCreator.shouldCreateRecord = shouldCreateRecord;
+
+			if (listener != null)
+				_accountCreator.addEventListener(AccountCreatorEvent.COMPLETE, listener);
+
+			// TODO: put something into the UI for creating a record for an existing account
+			if (createRecordOnly)
+				_accountCreator.createRecord();
+			else
+				_accountCreator.createAccount();
+		}
+
+		protected function createAccountButton_clickHandler(event:MouseEvent):void
+		{
+			createAccount();
+		}
+
+		protected function createAccountNoRecordButton_clickHandler(event:MouseEvent):void
+		{
+			createAccount(false);
+		}
+
+		protected function createRecordButton_clickHandler(event:MouseEvent):void
+		{
+			createAccount(true, true);
+		}
+
+		protected function createTestAccountButton_clickHandler(event:MouseEvent):void
+		{
+			createTestAccount(usernameTextInput.text);
+		}
+
+		protected function createDemographicsButton_clickHandler(event:MouseEvent):void
+		{
+			createDemographics();
+		}
+
+		private function createDemographics():void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+
+				var recordId:String = selectedItem.recordId;
+				if (recordId.length > 0)
+					createOneDemographics(selectedItem);
+			}
+		}
+
+		protected function createDocumentSetButton_clickHandler(event:MouseEvent):void
+		{
+			createDocumentSet();
+		}
+
+		private function createDocumentSet():void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+
+				var recordId:String = selectedItem.recordId;
+				if (recordId.length > 0)
+					createOneDocumentSet(selectedItem, createDocumentSetCompleteHandler);
+			}
+		}
+
+		private function validateSelectedItem():Boolean
+		{
+			return (accountsDataGrid.selectedItem != null && accountsDataGrid.dataProvider.length != 0)
+		}
+
+		protected function deleteDocumentSetButton_clickHandler(event:MouseEvent):void
+		{
+			deleteDocumentSet();
+		}
+
+		private function deleteDocumentSet():void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+
+				var recordId:String = selectedItem.recordId;
+				if (recordId.length > 0)
+					deleteOneDocumentSet(selectedItem, deleteOneDocumentSetCompleteHandler);
+			}
+		}
+
+		private function createOneDemographics(accountSourceXml:XML, listener:Function = null):void
+		{
+			_accountDataBuilder = new AccountDataBuilder();
+			_accountDataBuilder.buildDataFromSource(accountSourceXml);
+
+			var pha:Pha = new Pha(_phaConsumerKey, _phaConsumerSecret, _baseUrl);
+
+			_demographicsCreator = new DemographicsCreator();
+			_demographicsCreator.resultLogger = this;
+			_demographicsCreator.pha = pha;
+			_demographicsCreator.admin = _admin;
+			_demographicsCreator.source = _accountDataBuilder.source;
+			_demographicsCreator.demographicsXml = _accountDataBuilder.demographicsXml;
+
+			if (listener != null)
+				_demographicsCreator.addEventListener(AccountCreatorEvent.COMPLETE, listener);
+
+			_demographicsCreator.performTask();
+		}
+
+		protected function shareRecordButton_clickHandler(event:MouseEvent):void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+
+				var recordId:String = selectedItem.recordId;
+				if (recordId.length > 0)
+					shareOneRecord(selectedItem);
+			}
+		}
+
+		private function shareOneRecord(accountSourceXml:XML, listener:Function = null):void
+		{
+			_accountDataBuilder = new AccountDataBuilder();
+			_accountDataBuilder.buildDataFromSource(accountSourceXml);
+
+			var pha:Pha = new Pha(_phaConsumerKey, _phaConsumerSecret, _baseUrl);
+
+			_shareCreator = new ShareCreator();
+			_shareCreator.resultLogger = this;
+			_shareCreator.pha = pha;
+			_shareCreator.admin = _admin;
+			_shareCreator.source = _accountDataBuilder.source;
+			_shareCreator.shareWithAccountId = accountSourceXml.shareAccountId.toString();
+			_shareCreator.shareRoleLabel = accountSourceXml.shareRole.toString();
+
+			if (listener != null)
+				_shareCreator.addEventListener(AccountCreatorEvent.COMPLETE, listener);
+
+			_shareCreator.performTask();
+		}
+
+		private function createOneDocumentSet(accountSourceXml:XML, listener:Function = null):void
+		{
+			var asyncTaskInitiated:Boolean = false;
+			if (accountSourceXml.username.length() == 1 && accountSourceXml.username.toString().length > 0)
+			{
+				var directoryName:String;
+				directoryName = accountSourceXml.documentsDirectory.toString();
+
+				if (directoryName == null || directoryName.length == 0)
+					directoryName = accountSourceXml.username.toString();
+
+				var pha:Pha = new Pha(_phaConsumerKey, _phaConsumerSecret, _baseUrl);
+
+				var phrDocumentsCreator:PhrDocumentsCreator = new PhrDocumentsCreator();
+				phrDocumentsCreator.resultLogger = this;
+				phrDocumentsCreator.pha = pha;
+				phrDocumentsCreator.admin = _admin;
+				phrDocumentsCreator.source = accountSourceXml;
+				_results = new DocumentCreationResults();
+				_results.accountSourceXml = accountSourceXml;
+				_results.addEventListener(Event.CHANGE, results_changeHandler);
+				phrDocumentsCreator.results = _results;
+
+				phrDocumentsCreator.sourceDirectory = resolveUserFileOrApplicationResourceFile(directoryName);
+
+				if (phrDocumentsCreator.sourceDirectory.exists)
+				{
+					logResult("Loading documents from \"" + phrDocumentsCreator.sourceDirectory.nativePath + "\"", 1);
+
+					if (listener != null)
+						phrDocumentsCreator.addEventListener(AccountCreatorEvent.COMPLETE, listener);
+
+					phrDocumentsCreator.performTask();
+
+					asyncTaskInitiated = true;
+				}
+				else
+				{
+					logResult("No documents to load. Directory does not exist: " + directoryName, 1);
+				}
+			}
+
+			if (!asyncTaskInitiated && listener != null)
+			{
+				listener(new AccountCreatorEvent(AccountCreatorEvent.COMPLETE, accountSourceXml));
+			}
+		}
+
+		private function deleteOneDocumentSet(accountSourceXml:XML, listener:Function = null):void
+		{
+			var asyncTaskInitiated:Boolean = false;
+			if (accountSourceXml.username.length() == 1 && accountSourceXml.username.toString().length > 0)
+			{
+				var pha:Pha = new Pha(_phaConsumerKey, _phaConsumerSecret, _baseUrl);
+
+				var phrDocumentsDeleter:PhrDocumentsDeleter = new PhrDocumentsDeleter();
+				phrDocumentsDeleter.resultLogger = this;
+				phrDocumentsDeleter.pha = pha;
+				phrDocumentsDeleter.admin = _admin;
+				phrDocumentsDeleter.source = accountSourceXml;
+				phrDocumentsDeleter.documentIds = _cumulativeResults.documentIds;
+				_cumulativeResults = new DocumentCreationResults();
+
+				if (phrDocumentsDeleter.documentIds && phrDocumentsDeleter.documentIds.length > 0)
+				{
+					logResult("  Deleting " + phrDocumentsDeleter.documentIds.length.toString() +
+									  " document" + (phrDocumentsDeleter.documentIds.length > 1 ? "s" : "") + " for " +
+									  accountSourceXml.username.toString() + " record id " + accountSourceXml.recordId);
+
+					if (listener != null)
+						phrDocumentsDeleter.addEventListener(AccountCreatorEvent.COMPLETE, listener);
+
+					phrDocumentsDeleter.performTask();
+
+					asyncTaskInitiated = true;
+				}
+				else
+				{
+					logResult("  No documents to delete for " + accountSourceXml.username.toString() + " record id " + accountSourceXml.recordId);
+				}
+			}
+
+			if (!asyncTaskInitiated && listener != null)
+			{
+				listener(new AccountCreatorEvent(AccountCreatorEvent.COMPLETE, accountSourceXml));
+			}
+		}
+
+		protected function createAllAccountsButton_clickHandler(event:MouseEvent):void
+		{
+			createAllAccounts();
+		}
+
+		public function logResult(message:String, indent:int = 0):void
+		{
+			this.status = message;
+			var indentedMessage:String = StringUtil.repeat("  ", indent) + message;
+			resultsLog.text += indentedMessage + "\n";
+			logger.info(indentedMessage);
+		}
+
+		private function processPendingAccounts():void
+		{
+			if (_isProcessingAll && _accountsToCreate)
+			{
+				if (_accountsToCreate.length > 0)
+				{
+					var currentAccountSource:XML = _accountsToCreate.shift();
+					if (currentAccountSource.recordId.length() == 1 && currentAccountSource.recordId.toString().length != 0)
+					{
+						logResult("Skipping " + currentAccountSource.accountId.toString() + " because recordId is " + currentAccountSource.recordId.toString(),
+								  1);
+						processPendingAccounts();
+					}
+					else
+					{
+						logResult("Creating " + currentAccountSource.accountId.toString() + "...", 1);
+						createOneAccountAndData(currentAccountSource);
+					}
+				}
+				else
+				{
+					logResult("Complete");
+					_isProcessingAll = false;
+				}
+			}
+		}
+
+		private function createOneAccountAndData(accountSourceXml:XML):void
+		{
+			createOneAccount(accountSourceXml, true, accountCreationCompleteHandler);
+		}
+
+		private function accountCreationCompleteHandler(event:AccountCreatorEvent):void
+		{
+			if (createDemographicsCheckBox.selected)
+				createOneDemographics(event.accountSourceXml, demographicsCreationCompleteHandler);
+			else
+				demographicsCreationCompleteHandler(event);
+		}
+
+		private function demographicsCreationCompleteHandler(event:AccountCreatorEvent):void
+		{
+			if (shouldAutoShare(event.accountSourceXml))
+				shareOneRecord(event.accountSourceXml, recordSharedCompleteHandler);
+			else
+				recordSharedCompleteHandler(event);
+		}
+
+		private function shouldAutoShare(accountSourceXml:XML):Boolean
+		{
+			return shareRecordCheckBox.selected && !isBlank(accountSourceXml.shareAccountId.toString()) && !isBlank(accountSourceXml.shareRole.toString());
+		}
+
+		private function isBlank(value:String):Boolean
+		{
+			return value == null || value.length == 0;
+		}
+
+		private function recordSharedCompleteHandler(event:AccountCreatorEvent):void
+		{
+			createOneDocumentSet(event.accountSourceXml, createDocumentSetCompleteHandler);
+		}
+
+		private function createDocumentSetCompleteHandler(event:AccountCreatorEvent):void
+		{
+			for each (var documentId:String in _results.documentIds)
+				_cumulativeResults.addCreatedDocument(documentId);
+
+			logResult("Finished creating documents for " + event.accountSourceXml.username.toString() + ". Created " + _results.documentIds.length + " documents.",
+					  1);
+			_results.removeEventListener(Event.CHANGE, results_changeHandler);
+
+			processPendingAccounts();
+		}
+
+		private function deleteOneDocumentSetCompleteHandler(event:AccountCreatorEvent):void
+		{
+			logResult("Finished deleting documents.", 1);
+		}
+
+		private function resolveUserFileOrApplicationResourceFile(fileName:String):File
+		{
+			var resolvedFile:File;
+			if (sourceFile)
+			{
+				resolvedFile = sourceFile.parent.resolvePath(fileName);
+			}
+			else
+			{
+				resolvedFile = File.applicationStorageDirectory.resolvePath(fileName);
+			}
+
+			if (!resolvedFile.exists)
+				resolvedFile = File.applicationDirectory.resolvePath("resources").resolvePath(fileName);
+
+			return resolvedFile;
+		}
+
+		private function openAccountData_clickHandler(event:MouseEvent):void
+		{
+			openAccountData();
+		}
+
+		private function sourceFile_selectHandler(event:Event):void
+		{
+			sourceFile.removeEventListener(Event.SELECT, sourceFile_selectHandler);
+			sourceFile = event.target as File;
+
+			_settings.accountDataPath = sourceFile.nativePath;
+			_settingsFileStore.settings = _settings;
+			_settingsFileStore.saveSettings();
+
+			readXML();
+		}
+
+		private function addAppButton_clickHandler(event:MouseEvent):void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+
+				var recordId:String = selectedItem.recordId;
+				if (recordId.length > 0)
+				{
+					_accountDataBuilder = new AccountDataBuilder();
+					_accountDataBuilder.buildDataFromSource(selectedItem);
+					createAccountCreator();
+					_accountCreator.recordId = recordId;
+					_accountCreator.setupPha();
+				}
+			}
+		}
+
+		private function createAccountCreator():void
+		{
+			_accountCreator = new AccountCreator();
+			_accountCreator.admin = _admin;
+			_accountCreator.appId = _adminAppEmail;
+			_accountCreator.setupPhaAppId = appIdTextInput.text;
+			_accountCreator.source = _accountDataBuilder.source;
+			_accountCreator.contactXml = _accountDataBuilder.contactXml;
+			_accountCreator.demographicsXml = _accountDataBuilder.demographicsXml;
+		}
+
+		private function nativeMenu_itemClickHandler(event:FlexNativeMenuEvent):void
+		{
+			var application:WindowedApplication = this;
+			if (!application.nativeWindow.active)
+			{
+			}
+			else
+			{
+				doCommand(event.item.@command);
+			}
+		}
+
+		//Execute the selected command
+		private function doCommand(command:String):void
+		{
+			switch (command)
+			{
+				case "openAccountData":
+					openAccountData();
+					break;
+				case "databaseReset":
+					databaseReset();
+					break;
+				case "exit":
+					exit();
+					break;
+				case "createAllAccounts":
+					createAllAccounts();
+					break;
+				case "cloneAccountSource":
+					cloneAccountSource();
+					break;
+				case "createAccount":
+					createAccount();
+					break;
+				case "createAccountNoRecord":
+					createAccount(false);
+					break;
+				case "createRecord":
+					createAccount(true, true);
+					break;
+				case "deleteRecord":
+					deleteRecord();
+					break;
+				/*
+				 <menuitem label="Create Demographics" command="createDemographics"/>
+				 <menuitem label="Create Documents" command="createDocuments" key="d"/>
+				 <menuitem label="Delete Created Documents" command="deleteCreatedDocuments" key="d" shift="true"/>
+				 */
+				case "createDemographics":
+					createDemographics();
+					break;
+				case "createDocuments":
+					createDocumentSet();
+					break;
+				case "deleteCreatedDocuments":
+					deleteDocumentSet();
+					break;
+				case "updateCollaboRhythmSettings":
+					updateCollaboRhythmSettings();
+					break;
+				case "cut":
+					this.nativeApplication.cut();
+					break;
+				case "copy":
+					this.nativeApplication.copy();
+					break;
+				case "paste":
+					this.nativeApplication.paste();
+					break;
+				case "selectAll":
+					this.nativeApplication.selectAll();
+					break;
+				case "clear":
+					this.nativeApplication.clear();
+					break;
+				default:
+					logger.error("Unrecognized menu command: " + command);
+			}
+		}
+
+		private function cloneAccountSource():void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+				var seedAccountSource:XML = new XML(selectedItem);
+				resetAccountSource(seedAccountSource);
+
+				var model:AccountSourceClonerModel = new AccountSourceClonerModel();
+				var view:AccountSourceClonerView = new AccountSourceClonerView();
+				view.model = model;
+				var window:Window = new Window();
+				window.width = 640;
+				window.height = 480;
+				window.addElement(view);
+				window.open();
+				var controller:AccountSourceClonerController = new AccountSourceClonerController(model, view);
+				model.seedAccountSource = seedAccountSource;
+
+				controller.addEventListener(Event.COMPLETE, function (event:Event):void
+				{
+					var accountsXmlVector:Vector.<XML> = model.generateAccountSources();
+					for each (var accountSource:XML in accountsXmlVector)
+					{
+						sourceXml.appendChild(accountSource);
+					}
+					accountsDataGrid.invalidateDisplayList();
+					window.close();
+				})
+			}
+		}
+
+		private function updateCollaboRhythmSettings():void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+				var collaboRhythmStorageDirectory:File = new File(File.applicationStorageDirectory.nativePath.replace(NativeApplication.nativeApplication.applicationID,
+																													  "CollaboRhythm.Tablet.debug"));
+				var settingsFile:File = collaboRhythmStorageDirectory.resolvePath("settings.xml");
+				var saveSucceeded:Boolean = false;
+				var username:String;
+
+				if (collaboRhythmStorageDirectory.exists)
+				{
+					if (settingsFile.exists)
+					{
+						default xml namespace = "http://collaborhythm.org/application/settings";
+						var settingsXml:XML = readXmlFile(settingsFile);
+						if (settingsXml.localName().toString() == "settings")
+						{
+							username = selectedItem.username.toString();
+							settingsXml.username = username;
+							settingsXml.password = selectedItem.password.toString();
+							settingsXml.indivoServerBaseURL = _baseUrl;
+
+							if (_collaboRhythmConsumerSecret && _collaboRhythmConsumerSecret != "")
+								settingsXml.oauthChromeConsumerSecret = _collaboRhythmConsumerSecret;
+
+							saveSucceeded = saveXmlFile(settingsXml, settingsFile);
+						}
+					}
+				}
+
+				if (saveSucceeded)
+					logResult("Updated CollaboRhythm settings for " + username + " at \"" + settingsFile.nativePath + "\"");
+				else
+					logResult("Failed to update CollaboRhythm settings \"" + settingsFile.nativePath + "\"");
+			}
+		}
+
+		private function databaseReset():void
+		{
+			for each (var accountSource:XML in sourceXml.AccountSource)
+			{
+				resetAccountSource(accountSource);
+			}
+
+			accountsDataGrid.invalidateDisplayList();
+
+			logResult("Reset database-specific fields for all " + sourceXml.AccountSource.length() + " account sources.");
+		}
+
+		/**
+		 * Return an array containing the key code of the standard
+		 * modifier key for either Mac or Windows
+		 */
+		private function standardOSModifier(item:Object):Array
+		{
+			var modifiers:Array = new Array();
+			var itemXml:XML = item as XML;
+			if ((Capabilities.os.indexOf("Windows") >= 0))
+			{
+				if (itemXml && itemXml.hasOwnProperty("@label") && itemXml.@label.toString() == "Exit")
+				{
+					modifiers.push(Keyboard.ALTERNATE);
+				}
+				else
+				{
+					modifiers.push(Keyboard.CONTROL);
+				}
+			} else if (Capabilities.os.indexOf("Mac OS") >= 0)
+			{
+				modifiers.push(Keyboard.COMMAND);
+			}
+
+			if (itemXml && itemXml.hasOwnProperty("@shift") && itemXml.@shift.toString() == "true")
+			{
+				modifiers.push(Keyboard.SHIFT);
+			}
+			return modifiers;
+		}
+
+		private function results_changeHandler(event:Event):void
+		{
+			var results:DocumentCreationResults = event.target as DocumentCreationResults;
+			if (results && results.accountSourceXml)
+			{
+				results.accountSourceXml.status = results.statusSummary;
+			}
+		}
+
+		private function openAccountData():void
+		{
+			saveData();
+
+			var f:File = sourceFile;
+			f.browseForOpen("Select account data file to open", [xmlFilter]);
+			f.addEventListener(Event.SELECT, sourceFile_selectHandler);
+		}
+
+		private function createAllAccounts():void
+		{
+			_accountsToCreate = new Vector.<XML>();
+
+			for each (var accountSource:XML in sourceXml.AccountSource)
+			{
+				_accountsToCreate.push(accountSource);
+			}
+
+			logResult("Processing " + _accountsToCreate.length + " accounts...");
+			_isProcessingAll = true;
+			processPendingAccounts();
+		}
+
+		private function saveXmlFile(xml:XML, file:File):Boolean
+		{
+			var outputStringHeader:String = '<?xml version="1.0" encoding="utf-8"?>' + File.lineEnding;
+			var outputString:String = xml.toXMLString();
+			outputString = outputStringHeader + outputString;
+			var stream:FileStream = new FileStream();
+			var openSucceeded:Boolean = false;
+			try
+			{
+				stream.open(file, FileMode.WRITE);
+				openSucceeded = true;
+			} catch (e:Error)
+			{
+				var message:String = "Failed to write file: " + file.nativePath;
+				logger.error(message);
+				Alert.show(message, "Failed to Save");
+			}
+
+			if (openSucceeded)
+			{
+				stream.writeUTFBytes(outputString);
+			}
+			stream.close();
+			return openSucceeded;
+		}
+
+		private function resetAccountSource(accountSource:XML):void
+		{
+			accountSource.recordId = "";
+			accountSource.recordSeed = "";
+			accountSource.accessKey = "";
+			accountSource.accessSecret = "";
+			accountSource.status = "";
+		}
+
+		private function accountsDataGrid_keyDownHandler(event:KeyboardEvent):void
+		{
+			if (event.target == accountsDataGrid && event.keyCode == Keyboard.DELETE)
+			{
+				if (!validateSelectedItem())
+					return;
+
+//				delete sourceXml.AccountSource.(accountId == accountsDataGrid.selectedItem.accountId)[0];
+				var oldSelectedIndex:int = accountsDataGrid.selectedIndex;
+				delete sourceXml.AccountSource[accountsDataGrid.selectedIndex];
+				accountsDataGrid.selectedIndex = oldSelectedIndex - 1;
+				accountsDataGrid.invalidateDisplayList();
+			}
+		}
+		]]>
+	</fx:Script>
+	<s:VGroup left="0" top="0" bottom="0" right="0">
+		<s:VGroup width="100%">
+			<s:HGroup width="100%" visible="false" includeInLayout="false">
+				<s:Button label="Open Account Data" id="openAccountDataButton" click="openAccountData_clickHandler(event)"/>
+				<s:TextArea id="accountDataFilePath" width="100%" height="{openAccountDataButton.height}" editable="false"/>
+			</s:HGroup>
+			<s:HGroup width="331" height="24" visible="false" includeInLayout="false">
+				<s:Button label="Create All Accounts" id="createAllAccountsButton" click="createAllAccountsButton_clickHandler(event)"/>
+				<s:Button label="Create Selected Account and Record" id="createAccountButton" click="createAccountButton_clickHandler(event)"/>
+				<s:Button label="Create Selected Account (No Record)" id="createAccountNoRecordButton" click="createAccountNoRecordButton_clickHandler(event)"/>
+				<s:Button label="Create Record for existing Account" id="createRecordButton" click="createRecordButton_clickHandler(event)"/>
+				<s:CheckBox label="Auto Demographics" id="createDemographicsCheckBox" selected="true"/>
+				<s:CheckBox label="Auto Share" id="shareRecordCheckBox" selected="true"/>
+			</s:HGroup>
+			<s:HGroup visible="false" includeInLayout="false">
+				<s:Button label="Create Selected Demographics" id="createDemographicsButton" click="createDemographicsButton_clickHandler(event)"/>
+				<s:Button label="Create Selected Docs" id="createDocumentSetButton" click="createDocumentSetButton_clickHandler(event)"/>
+				<s:Button label="Delete Created Docs" id="deleteDocumentSetButton" click="deleteDocumentSetButton_clickHandler(event)"/>
+			</s:HGroup>
+			<s:HGroup visible="false" includeInLayout="false">
+				<s:Button label="Create Test Account" id="createTestAccountButton" click="createTestAccountButton_clickHandler(event)"/>
+				<s:TextInput id="usernameTextInput" text="user7"/>
+			</s:HGroup>
+			<s:HGroup visible="false" includeInLayout="false">
+				<s:Button label="Share Record" id="shareRecordButton" click="shareRecordButton_clickHandler(event)"/>
+			</s:HGroup>
+			<s:HGroup visible="false" includeInLayout="false">
+				<s:Button label="Add app" id="addAppButton" click="addAppButton_clickHandler(event)"/>
+				<s:Label text="App Id"/>
+				<s:TextInput id="appIdTextInput" text="" width="300"/>
+			</s:HGroup>
+		</s:VGroup>
+		<mx:VDividedBox width="100%" height="100%">
+			<mx:DataGrid id="accountsDataGrid" width="100%" height="100%" dataProvider="{sourceXml.AccountSource}" editable="true" keyDown="accountsDataGrid_keyDownHandler(event)">
+				<mx:columns>
+					<mx:DataGridColumn dataField="username" headerText="Username"/>
+					<mx:DataGridColumn dataField="documentsDirectory" headerText="Documents"/>
+					<mx:DataGridColumn dataField="password" headerText="Password"/>
+					<mx:DataGridColumn dataField="familyName" headerText="Last Name"/>
+					<mx:DataGridColumn dataField="givenName" headerText="First Name"/>
+					<mx:DataGridColumn dataField="accountId" headerText="Account ID"/>
+					<mx:DataGridColumn dataField="shareAccountId" headerText="Share With"/>
+					<mx:DataGridColumn dataField="shareRole" headerText="Share Role"/>
+					<mx:DataGridColumn dataField="recordId" headerText="Record ID"/>
+					<mx:DataGridColumn dataField="recordSeed" headerText="Seed" width="30"/>
+<!--
+					<mx:DataGridColumn dataField="accessKey" headerText="Access Key"/>
+					<mx:DataGridColumn dataField="accessSecret" headerText="Access Secret"/>
+-->
+					<mx:DataGridColumn dataField="notes" headerText="Notes"/>
+					<mx:DataGridColumn dataField="status" headerText="Status"/>
+				</mx:columns>
+			</mx:DataGrid>
+			<s:TextArea id="resultsLog" width="100%" height="120" editable="false"/>
+		</mx:VDividedBox>
+	</s:VGroup>
+
+	<s:menu>
+		<mx:FlexNativeMenu
+		    id="nativeMenu"
+			dataProvider="{applicationMenu}"
+		    labelField="@label"
+		    keyEquivalentField="@key"
+		    keyEquivalentModifiersFunction="standardOSModifier"
+		    showRoot="false"
+		    itemClick="nativeMenu_itemClickHandler(event)"/>
+	</s:menu>
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+		<fx:XML id="applicationMenu" format="e4x">
+			<menubar>
+				<menu label="File">
+					<menuitem label="Open..." command="openAccountData" key="o"/>
+					<menuitem type="separator"/>
+					<menuitem label="Database Reset" command="databaseReset" key="t"/>
+					<menuitem type="separator"/>
+					<menuitem label="Exit" command="exit" key="f4"/>
+				</menu>
+				<menu label="Account">
+					<menuitem label="Create Account and Record" command="createAccount" key="n"/>
+					<menuitem label="Create Account (No Record)" command="createAccountNoRecord"/>
+					<menuitem type="separator"/>
+					<menuitem label="Create All Accounts" command="createAllAccounts"/>
+					<menuitem type="separator"/>
+					<menuitem label="Clone Account Source" command="cloneAccountSource" key="g"/>
+				</menu>
+				<menu label="Record">
+					<menuitem label="Create Record" command="createRecord" key="r"/>
+					<menuitem label="Delete Record" command="deleteRecord" key="r" shift="true"/>
+				</menu>
+				<menu label="Documents">
+					<menuitem label="Create Documents" command="createDocuments" key="d"/>
+					<menuitem label="Delete Created Documents" command="deleteCreatedDocuments" key="d" shift="true"/>
+					<menuitem type="separator"/>
+					<menuitem label="Create Demographics" command="createDemographics"/>
+				</menu>
+				<menu label="CollaboRhythm">
+					<menuitem label="Update Settings" command="updateCollaboRhythmSettings" key="u"/>
+				</menu>
+				<menu label="Edit">
+					<menuitem label="Cut" command="cut" key="x"/>
+					<menuitem label="Copy" command="copy" key="c"/>
+					<menuitem label="Paste" command="paste" key="v"/>
+					<menuitem label="Select all" command="selectAll" key="a"/>
+					<menuitem label="Clear" command="clear"/>
+				</menu>
+			</menubar>
+		</fx:XML>
+	</fx:Declarations>
+</s:WindowedApplication>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--~
+  ~ Copyright 2011 John Moore, Scott Gilroy
+  ~
+  ~ This file is part of CollaboRhythm.
+  ~
+  ~ CollaboRhythm is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+  ~ License as published by the Free Software Foundation, either version 2 of the License, or (at your option) any later
+  ~ version.
+  ~
+  ~ CollaboRhythm is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+  ~ warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more
+  ~ details.
+  ~
+  ~ You should have received a copy of the GNU General Public License along with CollaboRhythm.  If not, see
+  ~ <http://www.gnu.org/licenses/>.
+  -->
+<xs:schema id="settings"
+		   xmlns:xs="http://www.w3.org/2001/XMLSchema"
+		   xmlns="http://collaborhythm.org/IndivoAccountCreator/application/settings"
+		   targetNamespace="http://collaborhythm.org/IndivoAccountCreator/application/settings"
+		   attributeFormDefault="unqualified"
+		   elementFormDefault="qualified"
+		>
+
+	<xs:element name="settings" type="settings"/>
+
+	<xs:complexType name="settings">
+		<xs:all>
+			<xs:element type="xs:string" name="accountDataPath" minOccurs="0" maxOccurs="1">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">
+						Path to the file that was last opened and should be opened again automatically the next time the
+						application starts.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+		</xs:all>
+	</xs:complexType>
+</xs:schema>

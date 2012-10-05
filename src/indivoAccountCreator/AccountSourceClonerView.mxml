@@ -1,0 +1,48 @@
+<?xml version="1.0"?>
+<s:Form xmlns:fx="http://ns.adobe.com/mxml/2009" xmlns:s="library://ns.adobe.com/flex/spark"
+	xmlns:mx="library://ns.adobe.com/flex/mx"
+	width="100%" height="100%"
+		>
+	<fx:Script><![CDATA[
+		import mx.events.FlexEvent;
+
+		[Bindable]
+		private var _model:AccountSourceClonerModel;
+
+		private function cloneButton_clickHandler(event:MouseEvent):void
+		{
+			dispatchEvent(new Event(Event.COMPLETE));
+		}
+
+		public function set model(model:AccountSourceClonerModel):void
+		{
+			_model = model;
+		}
+
+		public function get model():AccountSourceClonerModel
+		{
+			return _model;
+		}
+		]]>
+	</fx:Script>
+
+	<s:FormHeading label="Clone Account Source"/>
+	<s:FormItem label="Series Start Value">
+		<s:TextInput id="seriesStartValueTextInput" restrict="0-9" text="1"/>
+	</s:FormItem>
+	<s:FormItem label="Series Count">
+		<s:TextInput id="seriesCountTextInput" restrict="0-9" text="1"/>
+		<s:Label
+				text="Range will end at {Number(seriesStartValueTextInput.text) + Number(seriesCountTextInput.text) - 1}"/>
+	</s:FormItem>
+	<s:FormItem label="Replace Numeric Part">
+		<s:TextInput id="replaceNumericPartTextInput" updateComplete="dispatchEvent(new FlexEvent(FlexEvent.UPDATE_COMPLETE))"/>
+	</s:FormItem>
+	<s:FormItem id="templateFormItem" label="Template" width="100%" height="100%">
+		<s:TextArea id="templateTextArea" width="100%" height="{templateFormItem.height}" text="{_model.template}"/>
+	</s:FormItem>
+	<s:FormItem>
+		<s:Button id="cloneButton" label="Clone" click="cloneButton_clickHandler(event)"/>
+	</s:FormItem>
+
+</s:Form>
