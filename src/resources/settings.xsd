@@ -35,6 +35,48 @@
 					</xs:documentation>
 				</xs:annotation>
 			</xs:element>
+			<xs:element type="xs:string" name="androidSdkPlatformToolsPath" minOccurs="0" maxOccurs="1">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">
+						Path to the Android SDK platform-tools directory where ADB is located.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element type="xs:string" name="collaboRhythmDeviceLocalStorePath" minOccurs="0" maxOccurs="1">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">
+						Path to the CollaboRhythm Tablet local store directory on the Android device (where the settings.xml file is located).
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element type="xs:string" name="collaboRhythmLocalStorePath" minOccurs="0" maxOccurs="1">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">
+						Path to the CollaboRhythm Tablet local store directory on the local machine (where the settings.xml file is located).
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element type="xs:string" name="collaboRhythmAndroidPackage" minOccurs="0" maxOccurs="1">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">
+						Android package for CollaboRhythm Tablet used for running the app on Android.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element type="xs:boolean" name="autoDeploy" minOccurs="0" maxOccurs="1">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">
+						If true, the settings.xml file will automatically be deployed to the Android device when updating.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
+			<xs:element type="xs:boolean" name="autoRun" minOccurs="0" maxOccurs="1">
+				<xs:annotation>
+					<xs:documentation xml:lang="en">
+						If true, CollaboRhythm will automatically be run on the Android device when updating.
+					</xs:documentation>
+				</xs:annotation>
+			</xs:element>
 		</xs:all>
 	</xs:complexType>
 </xs:schema>

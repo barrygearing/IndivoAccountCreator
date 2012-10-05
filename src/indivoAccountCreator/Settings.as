@@ -20,6 +20,12 @@ package indivoAccountCreator
 	public class Settings
 	{
 		private var _accountDataPath:String;
+		private var _androidSdkPlatformToolsPath:String;
+		private var _collaboRhythmDeviceLocalStorePath:String;
+		private var _collaboRhythmLocalStorePath:String;
+		private var _collaboRhythmAndroidPackage:String;
+		private var _autoDeploy:Boolean = true;
+		private var _autoRun:Boolean = true;
 
 		public function Settings()
 		{
@@ -33,6 +39,66 @@ package indivoAccountCreator
 		public function set accountDataPath(value:String):void
 		{
 			_accountDataPath = value;
+		}
+
+		public function get androidSdkPlatformToolsPath():String
+		{
+			return _androidSdkPlatformToolsPath;
+		}
+
+		public function set androidSdkPlatformToolsPath(value:String):void
+		{
+			_androidSdkPlatformToolsPath = value;
+		}
+
+		public function get collaboRhythmDeviceLocalStorePath():String
+		{
+			return _collaboRhythmDeviceLocalStorePath;
+		}
+
+		public function get collaboRhythmLocalStorePath():String
+		{
+			return _collaboRhythmLocalStorePath;
+		}
+
+		public function set collaboRhythmDeviceLocalStorePath(value:String):void
+		{
+			_collaboRhythmDeviceLocalStorePath = value;
+		}
+
+		public function set collaboRhythmLocalStorePath(value:String):void
+		{
+			_collaboRhythmLocalStorePath = value;
+		}
+
+		public function get collaboRhythmAndroidPackage():String
+		{
+			return _collaboRhythmAndroidPackage;
+		}
+
+		public function set collaboRhythmAndroidPackage(value:String):void
+		{
+			_collaboRhythmAndroidPackage = value;
+		}
+
+		public function get autoDeploy():Boolean
+		{
+			return _autoDeploy;
+		}
+
+		public function set autoDeploy(value:Boolean):void
+		{
+			_autoDeploy = value;
+		}
+
+		public function get autoRun():Boolean
+		{
+			return _autoRun;
+		}
+
+		public function set autoRun(value:Boolean):void
+		{
+			_autoRun = value;
 		}
 	}
 }

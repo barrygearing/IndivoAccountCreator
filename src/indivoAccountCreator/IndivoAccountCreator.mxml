@@ -12,9 +12,7 @@
 
 		import mx.controls.Alert;
 		import mx.core.Window;
-
 		import mx.events.FlexNativeMenuEvent;
-
 		import mx.logging.ILogger;
 		import mx.logging.Log;
 		import mx.logging.LogEventLevel;
@@ -49,6 +47,7 @@
 		private var _cumulativeResults:DocumentCreationResults = new DocumentCreationResults();
 		private var _results:DocumentCreationResults = new DocumentCreationResults();
 
+		[Bindable]
 		private var _settings:Settings;
 		private var _settingsFileStore:SettingsFileStore = new SettingsFileStore();
 
@@ -65,7 +64,7 @@
 		{
 			_settingsFileStore.readSettings();
 			_settings = _settingsFileStore.settings;
-
+			initializeDefaultPaths();
 			stage.nativeWindow.addEventListener(Event.CLOSING, windowClosingHandler);
 
 			if (_settings && _settings.accountDataPath && _settings.accountDataPath.length > 0)
@@ -142,6 +141,8 @@
 		{
 			createXMLData();
 			saveAccountData();
+			_settingsFileStore.settings = _settings;
+			_settingsFileStore.saveSettings();
 		}
 
 		/**
@@ -756,11 +757,6 @@
 				case "deleteRecord":
 					deleteRecord();
 					break;
-				/*
-				 <menuitem label="Create Demographics" command="createDemographics"/>
-				 <menuitem label="Create Documents" command="createDocuments" key="d"/>
-				 <menuitem label="Delete Created Documents" command="deleteCreatedDocuments" key="d" shift="true"/>
-				 */
 				case "createDemographics":
 					createDemographics();
 					break;
@@ -772,6 +768,15 @@
 					break;
 				case "updateCollaboRhythmSettings":
 					updateCollaboRhythmSettings();
+					break;
+				case "deployToAndroid":
+					deployToAndroid();
+					break;
+				case "toggleAutoDeploy":
+					toggleAutoDeploy();
+					break;
+				case "toggleAutoRun":
+					toggleAutoRun();
 					break;
 				case "cut":
 					this.nativeApplication.cut();
@@ -791,6 +796,62 @@
 				default:
 					logger.error("Unrecognized menu command: " + command);
 			}
+		}
+
+		private function toggleAutoDeploy():void
+		{
+			_settings.autoDeploy = !_settings.autoDeploy;
+		}
+
+		private function toggleAutoRun():void
+		{
+			_settings.autoRun = !_settings.autoRun;
+		}
+
+		private function deployToAndroid():void
+		{
+			logResult("Deploying settings to Android...");
+
+			var adbFile:File = new File(_settings.androidSdkPlatformToolsPath).resolvePath("adb" + getNativeExecutableExtension());
+			var adbProcessStartupInfo:NativeProcessStartupInfo = new NativeProcessStartupInfo();
+			adbProcessStartupInfo.executable = adbFile;
+			adbProcessStartupInfo.arguments = new <String>["shell", "mkdir", _settings.collaboRhythmDeviceLocalStorePath];
+			var adbProcess:NativeProcess = new NativeProcess();
+			adbProcess.addEventListener(ProgressEvent.STANDARD_OUTPUT_DATA, adbProcess_standardOutputDataHandler);
+			adbProcess.addEventListener(NativeProcessExitEvent.EXIT, function (event:NativeProcessExitEvent):void
+			{
+				var deviceSettingsPath:String = _settings.collaboRhythmDeviceLocalStorePath + "settings.xml";
+				adbProcessStartupInfo.arguments = new <String>["push", new File(_settings.collaboRhythmLocalStorePath).resolvePath("settings.xml").nativePath, deviceSettingsPath];
+				adbProcess = new NativeProcess();
+				adbProcess.addEventListener(ProgressEvent.STANDARD_OUTPUT_DATA, adbProcess_standardOutputDataHandler);
+				adbProcess.addEventListener(NativeProcessExitEvent.EXIT, function (event:NativeProcessExitEvent):void
+				{
+					logResult("Deployed settings to Android " + deviceSettingsPath, 1);
+					adbProcessStartupInfo.arguments = new <String>["shell", "am", "force-stop", _settings.collaboRhythmAndroidPackage];
+					adbProcess = new NativeProcess();
+					adbProcess.addEventListener(ProgressEvent.STANDARD_OUTPUT_DATA,
+												adbProcess_standardOutputDataHandler);
+					adbProcess.addEventListener(NativeProcessExitEvent.EXIT,
+												function (event:NativeProcessExitEvent):void
+												{
+													adbProcessStartupInfo.arguments = new <String>["shell", "am", "start", "-a", "android.intent.action.MAIN", "-n", _settings.collaboRhythmAndroidPackage + "/.AppEntry"];
+													adbProcess = new NativeProcess();
+													adbProcess.addEventListener(ProgressEvent.STANDARD_OUTPUT_DATA,
+																				adbProcess_standardOutputDataHandler);
+													adbProcess.addEventListener(NativeProcessExitEvent.EXIT,
+																				function (event:NativeProcessExitEvent):void
+																				{
+																					logResult("Started application on Android " + _settings.collaboRhythmAndroidPackage,
+																							  1);
+																				});
+													adbProcess.start(adbProcessStartupInfo);
+												});
+					adbProcess.start(adbProcessStartupInfo);
+				});
+				adbProcess.start(adbProcessStartupInfo);
+			});
+			adbProcess.start(adbProcessStartupInfo);
+
 		}
 
 		private function cloneAccountSource():void
@@ -836,8 +897,7 @@
 			if (accountsDataGrid.selectedItem is XML)
 			{
 				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
-				var collaboRhythmStorageDirectory:File = new File(File.applicationStorageDirectory.nativePath.replace(NativeApplication.nativeApplication.applicationID,
-																													  "CollaboRhythm.Tablet.debug"));
+				var collaboRhythmStorageDirectory:File = new File(_settings.collaboRhythmLocalStorePath);
 				var settingsFile:File = collaboRhythmStorageDirectory.resolvePath("settings.xml");
 				var saveSucceeded:Boolean = false;
 				var username:String;
@@ -864,10 +924,27 @@
 				}
 
 				if (saveSucceeded)
+				{
 					logResult("Updated CollaboRhythm settings for " + username + " at \"" + settingsFile.nativePath + "\"");
+					if (autoDeploy)
+					{
+						deployToAndroid();
+					}
+				}
 				else
 					logResult("Failed to update CollaboRhythm settings \"" + settingsFile.nativePath + "\"");
 			}
+		}
+
+		private function get autoDeploy():Boolean
+		{
+//			<menuitem label="Auto Deploy" command="toggleAutoDeploy" type="check"/>
+//			trace(applicationMenu.menu.(@label == "File").toString());
+//			trace(applicationMenu..menuitem.(attribute("command") == "toggleAutoDeploy"));
+//			var toggled:Object = applicationMenu..menuitem.(attribute("command") == "toggleAutoDeploy");
+//			trace(toggled);
+//			return toggled;
+			return _settings.autoDeploy;
 		}
 
 		private function databaseReset():void
@@ -993,6 +1070,48 @@
 				accountsDataGrid.invalidateDisplayList();
 			}
 		}
+
+		private function getNativeExecutableExtension():String
+		{
+			return ".exe";
+		}
+
+		private function initializeDefaultPaths():void
+		{
+			if (_settings.androidSdkPlatformToolsPath == null || _settings.androidSdkPlatformToolsPath.length == 0)
+			{
+				_settings.androidSdkPlatformToolsPath = new File("C:\\Program Files (x86)").resolvePath("Android").resolvePath("android-sdk").resolvePath("platform-tools").nativePath;
+			}
+
+			if (_settings.collaboRhythmLocalStorePath == null || _settings.collaboRhythmLocalStorePath.length == 0)
+			{
+				_settings.collaboRhythmLocalStorePath =
+						new File(File.applicationStorageDirectory.nativePath.replace(NativeApplication.nativeApplication.applicationID,
+																					 "CollaboRhythm.Tablet.debug")).nativePath;
+			}
+
+			if (_settings.collaboRhythmDeviceLocalStorePath == null || _settings.collaboRhythmDeviceLocalStorePath.length == 0)
+			{
+				_settings.collaboRhythmDeviceLocalStorePath = "/data/local/air.CollaboRhythm.Tablet.debug/CollaboRhythm.Tablet.debug/Local Store/";
+			}
+
+			if (_settings.collaboRhythmAndroidPackage == null || _settings.collaboRhythmAndroidPackage.length == 0)
+			{
+				_settings.collaboRhythmAndroidPackage = "air.CollaboRhythm.Tablet.debug";
+			}
+		}
+
+		private function adbProcess_standardOutputDataHandler(event:ProgressEvent):void
+		{
+			var process:NativeProcess = event.target as NativeProcess;
+			if (process && process.running && process.standardOutput.bytesAvailable > 0)
+			{
+				var message:String = process.standardOutput.readUTFBytes(process.standardOutput.bytesAvailable);
+				message = StringHelper.trim(message);
+				if (message.length > 0)
+					logResult(message, 1);
+			}
+		}
 		]]>
 	</fx:Script>
 	<s:VGroup left="0" top="0" bottom="0" right="0">
@@ -1093,6 +1212,9 @@
 				</menu>
 				<menu label="CollaboRhythm">
 					<menuitem label="Update Settings" command="updateCollaboRhythmSettings" key="u"/>
+					<menuitem label="Deploy to Android" command="deployToAndroid" key="i"/>
+					<menuitem label="Auto Deploy" command="toggleAutoDeploy" type="check" toggled="{_settings.autoDeploy}"/>
+					<menuitem label="Auto Run" command="toggleAutoRun" type="check" toggled="{_settings.autoRun}"/>
 				</menu>
 				<menu label="Edit">
 					<menuitem label="Cut" command="cut" key="x"/>

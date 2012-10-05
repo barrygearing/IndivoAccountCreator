@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="IdProvider" IDEtalkID="F856FB66B8AAA875E052A7A55DB84078" />
+  <component name="ProjectResources">
+    <default-html-doctype>http://www.w3.org/1999/xhtml</default-html-doctype>
+  </component>
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_1_5" assert-keyword="true" jdk-15="true" project-jdk-name="4.6.0 AIR" project-jdk-type="AIR SDK Type">
+    <output url="file://$PROJECT_DIR$/classes" />
+  </component>
+  <component name="SvnBranchConfigurationManager">
+    <option name="myConfigurationMap">
+      <map>
+        <entry key="$PROJECT_DIR$">
+          <value>
+            <SvnBranchConfiguration>
+              <option name="branchUrls">
+                <list>
+                  <option value="https://svn.media.mit.edu/r/collaborhythm/branches" />
+                  <option value="https://svn.media.mit.edu/r/collaborhythm/shelves" />
+                  <option value="https://svn.media.mit.edu/r/collaborhythm/tags" />
+                </list>
+              </option>
+              <option name="trunkUrl" value="https://svn.media.mit.edu/r/collaborhythm/trunk" />
+            </SvnBranchConfiguration>
+          </value>
+        </entry>
+      </map>
+    </option>
+    <option name="mySupportsUserInfoFilter" value="true" />
+  </component>
+</project>
+
