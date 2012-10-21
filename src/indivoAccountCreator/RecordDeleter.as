@@ -73,7 +73,7 @@ import org.indivo.client.*;
 		{
 			updateStatus("Changing owner.");
 
-			assertSourceRecordProperties();
+			//assertSourceRecordProperties();
 
 			var performer:AsyncPerformer = new AsyncPerformer();
 			performer.addEventListener(Event.COMPLETE, performer_completeHandler);

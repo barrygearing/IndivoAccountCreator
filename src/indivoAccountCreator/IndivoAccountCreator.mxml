@@ -30,14 +30,18 @@
 		private var _demographicsCreator:DemographicsCreator;
 		private var _shareCreator:ShareCreator;
 
-		private var _adminConsumerKey:String = "indivoAccountCreator";
-		private var _adminConsumerSecret:String = "indivoAccountCreator_secret93452";
+		private static const DEFAULT_CONSUMER_KEY:String = "indivoAccountCreator";
+		private static const DEFAULT_CONSUMER_SECRET:String = "indivoAccountCreator_secret93452";
+		private static const DEFAULT_COLLABORHYTHM_CONSUMER_SECRET:String = null;
+		private static const DEFAULT_BASE_URL:String = "http://records.media.mit.edu:8000";
+
+		private var _adminConsumerKey:String = DEFAULT_CONSUMER_KEY;
+		private var _adminConsumerSecret:String = DEFAULT_CONSUMER_SECRET;
 		private var _adminAppEmail:String = "indivoAccountCreator@apps.indivo.org";
-		private var _phaConsumerKey:String = "indivoAccountCreator";
-		private var _phaConsumerSecret:String = "indivoAccountCreator_secret93452";
-		//		private var _collaboRhythmConsumerSecret:String = "collaboRhythmChrome_secret93452";
-		private var _collaboRhythmConsumerSecret:String = null;
-		private var _baseUrl:String = "http://records.media.mit.edu:8000";
+		private var _phaConsumerKey:String = DEFAULT_CONSUMER_KEY;
+		private var _phaConsumerSecret:String = DEFAULT_CONSUMER_SECRET;
+		private var _collaboRhythmConsumerSecret:String = DEFAULT_COLLABORHYTHM_CONSUMER_SECRET;
+		private var _baseUrl:String = DEFAULT_BASE_URL;
 
 		public var sourceFile:File; // The source data sourceFile
 		[Bindable]
@@ -154,12 +158,26 @@
 		{
 			if (sourceXml.indivoServerBaseURL.length() == 1 && sourceXml.indivoServerBaseURL.hasSimpleContent())
 				_baseUrl = sourceXml.indivoServerBaseURL.toString();
+			else
+				_baseUrl = DEFAULT_BASE_URL;
 
 			if (sourceXml.indivoServerConsumerKey.length() == 1 && sourceXml.indivoServerConsumerKey.hasSimpleContent())
 			{
 				_adminConsumerSecret = sourceXml.indivoServerConsumerKey.toString();
 				_phaConsumerSecret = sourceXml.indivoServerConsumerKey.toString();
+			}
+			else
+			{
+				_adminConsumerSecret = _phaConsumerSecret = DEFAULT_CONSUMER_SECRET;
+			}
+
+			if (sourceXml.collaboRhythmIndivoServerConsumerKey.length() == 1 && sourceXml.collaboRhythmIndivoServerConsumerKey.hasSimpleContent())
+			{
 				_collaboRhythmConsumerSecret = sourceXml.collaboRhythmIndivoServerConsumerKey.toString();
+			}
+			else
+			{
+				_collaboRhythmConsumerSecret = DEFAULT_COLLABORHYTHM_CONSUMER_SECRET
 			}
 		}
 
@@ -291,7 +309,7 @@
 				var recordDeleter:RecordDeleter = new RecordDeleter();
 				recordDeleter.resultLogger = this;
 				recordDeleter.pha = pha;
-				recordDeleter.admin = _admin;
+				recordDeleter.admin = _admin.clone();
 				recordDeleter.source = accountSourceXml;
 				recordDeleter.oldShareAccountId = accountSourceXml.shareAccountId.toString();
 				recordDeleter.janitorAccountId = janitorAccountSourceXml.accountId.toString();
@@ -419,7 +437,7 @@
 			_demographicsCreator = new DemographicsCreator();
 			_demographicsCreator.resultLogger = this;
 			_demographicsCreator.pha = pha;
-			_demographicsCreator.admin = _admin;
+			_demographicsCreator.admin = _admin.clone();
 			_demographicsCreator.source = _accountDataBuilder.source;
 			_demographicsCreator.demographicsXml = _accountDataBuilder.demographicsXml;
 
@@ -454,7 +472,7 @@
 			_shareCreator = new ShareCreator();
 			_shareCreator.resultLogger = this;
 			_shareCreator.pha = pha;
-			_shareCreator.admin = _admin;
+			_shareCreator.admin = _admin.clone();
 			_shareCreator.source = _accountDataBuilder.source;
 			_shareCreator.shareWithAccountId = accountSourceXml.shareAccountId.toString();
 			_shareCreator.shareRoleLabel = accountSourceXml.shareRole.toString();
@@ -481,7 +499,7 @@
 				var phrDocumentsCreator:PhrDocumentsCreator = new PhrDocumentsCreator();
 				phrDocumentsCreator.resultLogger = this;
 				phrDocumentsCreator.pha = pha;
-				phrDocumentsCreator.admin = _admin;
+				phrDocumentsCreator.admin = _admin.clone();
 				phrDocumentsCreator.source = accountSourceXml;
 				_results = new DocumentCreationResults();
 				_results.accountSourceXml = accountSourceXml;
@@ -523,7 +541,7 @@
 				var phrDocumentsDeleter:PhrDocumentsDeleter = new PhrDocumentsDeleter();
 				phrDocumentsDeleter.resultLogger = this;
 				phrDocumentsDeleter.pha = pha;
-				phrDocumentsDeleter.admin = _admin;
+				phrDocumentsDeleter.admin = _admin.clone();
 				phrDocumentsDeleter.source = accountSourceXml;
 				phrDocumentsDeleter.documentIds = _cumulativeResults.documentIds;
 				_cumulativeResults = new DocumentCreationResults();
@@ -705,7 +723,7 @@
 		private function createAccountCreator():void
 		{
 			_accountCreator = new AccountCreator();
-			_accountCreator.admin = _admin;
+			_accountCreator.admin = _admin.clone();
 			_accountCreator.appId = _adminAppEmail;
 			_accountCreator.setupPhaAppId = appIdTextInput.text;
 			_accountCreator.source = _accountDataBuilder.source;
