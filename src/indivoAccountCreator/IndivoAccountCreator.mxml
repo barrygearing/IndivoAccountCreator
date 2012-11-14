@@ -760,8 +760,11 @@
 				case "createAllAccounts":
 					createAllAccounts();
 					break;
-				case "cloneAccountSource":
-					cloneAccountSource();
+				case "createAccountSourceSeries":
+					createAccountSourceSeries();
+					break;
+				case "duplicateAccountSource":
+					duplicateAccountSource();
 					break;
 				case "createAccount":
 					createAccount();
@@ -872,7 +875,7 @@
 
 		}
 
-		private function cloneAccountSource():void
+		private function createAccountSourceSeries():void
 		{
 			if (!validateSelectedItem())
 				return;
@@ -904,6 +907,21 @@
 					accountsDataGrid.invalidateDisplayList();
 					window.close();
 				})
+			}
+		}
+
+		private function duplicateAccountSource():void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+				var duplicateAccountSource:XML = new XML(selectedItem);
+				resetAccountSource(duplicateAccountSource);
+				sourceXml.appendChild(duplicateAccountSource);
+				accountsDataGrid.invalidateDisplayList();
 			}
 		}
 
@@ -1216,7 +1234,8 @@
 					<menuitem type="separator"/>
 					<menuitem label="Create All Accounts" command="createAllAccounts"/>
 					<menuitem type="separator"/>
-					<menuitem label="Clone Account Source" command="cloneAccountSource" key="g"/>
+					<menuitem label="Create Account Source Series" command="createAccountSourceSeries" key="g"/>
+					<menuitem label="Duplicate Account Source" command="duplicateAccountSource"/>
 				</menu>
 				<menu label="Record">
 					<menuitem label="Create Record" command="createRecord" key="r"/>
