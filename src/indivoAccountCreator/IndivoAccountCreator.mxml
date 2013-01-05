@@ -457,17 +457,7 @@
 
 		protected function shareRecordButton_clickHandler(event:MouseEvent):void
 		{
-			if (!validateSelectedItem())
-				return;
-
-			if (accountsDataGrid.selectedItem is XML)
-			{
-				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
-
-				var recordId:String = selectedItem.recordId;
-				if (recordId.length > 0)
-					shareOneRecord(selectedItem);
-			}
+			shareRecord();
 		}
 
 		private function shareOneRecord(accountSourceXml:XML, listener:Function = null):void
@@ -785,6 +775,9 @@
 					break;
 				case "deleteRecord":
 					deleteRecord();
+					break;
+				case "shareRecord":
+					shareRecord();
 					break;
 				case "createDemographics":
 					createDemographics();
@@ -1156,6 +1149,21 @@
 					logResult(message, 1);
 			}
 		}
+
+		private function shareRecord():void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+
+				var recordId:String = selectedItem.recordId;
+				if (recordId.length > 0)
+					shareOneRecord(selectedItem);
+			}
+		}
 		]]>
 	</fx:Script>
 	<s:VGroup left="0" top="0" bottom="0" right="0">
@@ -1248,6 +1256,8 @@
 				<menu label="Record">
 					<menuitem label="Create Record" command="createRecord" key="r"/>
 					<menuitem label="Delete Record" command="deleteRecord" key="r" shift="true"/>
+					<menuitem type="separator"/>
+					<menuitem label="Share Record" command="shareRecord"/>
 				</menu>
 				<menu label="Documents">
 					<menuitem label="Create Documents" command="createDocuments" key="d"/>
