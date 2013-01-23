@@ -950,6 +950,10 @@
 							username = selectedItem.username.toString();
 							settingsXml.username = username;
 							settingsXml.password = selectedItem.password.toString();
+							if (selectedItem.mode.length() == 1 && selectedItem.mode.hasSimpleContent())
+							{
+								settingsXml.mode = selectedItem.mode.toString();
+							}
 							settingsXml.indivoServerBaseURL = _baseUrl;
 
 							if (_collaboRhythmConsumerSecret && _collaboRhythmConsumerSecret != "")
@@ -1207,6 +1211,7 @@
 					<mx:DataGridColumn dataField="familyName" headerText="Last Name"/>
 					<mx:DataGridColumn dataField="givenName" headerText="First Name"/>
 					<mx:DataGridColumn dataField="accountId" headerText="Account ID"/>
+					<mx:DataGridColumn dataField="mode" headerText="Mode"/>
 					<mx:DataGridColumn dataField="shareAccountId" headerText="Share With"/>
 					<mx:DataGridColumn dataField="shareRole" headerText="Share Role"/>
 					<mx:DataGridColumn dataField="recordId" headerText="Record ID"/>
