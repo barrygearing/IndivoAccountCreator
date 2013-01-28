@@ -102,7 +102,7 @@ package indivoAccountCreator
 		public function buildDataFromSource(source:XML):void
 		{
 			_source = source;
-			
+
 			_contactXml =
 				<Contact xmlns="http://indivo.org/vocab/xml/documents#">
 					<name>
@@ -134,22 +134,39 @@ package indivoAccountCreator
 					<phoneNumber type="work">{_source.phoneNumberWork.toString()}</phoneNumber>
 					<instantMessengerName protocol="aim">{_source.instantMessengerName.toString()}</instantMessengerName>
 				</Contact>;
-			
+
+			var dateOfBirthString:String = _source.dateOfBirth.toString();
+			var dateOfBirth:Date = DateUtil.parseW3CDTF(dateOfBirthString);
 			_demographicsXml =
-				<Demographics xmlns="http://indivo.org/vocab/xml/documents#">
-					<dateOfBirth>{_source.dateOfBirth.toString()}</dateOfBirth>
-					<gender>{_source.gender.toString()}</gender>
-					<ethnicity>{_source.ethnicity.toString()}</ethnicity>
-					<language>{_source.language.toString()}</language>
-					<maritalStatus>{_source.maritalStatus.toString()}</maritalStatus>
-					<employmentStatus>{_source.employmentStatus.toString()}</employmentStatus>
-					<employmentIndustry>{_source.employmentIndustry.toString()}</employmentIndustry>
-					<occupation>{_source.occupation.toString()}</occupation>
-					<religion>{_source.religion.toString()}</religion>
-					<income>{_source.income.toString()}</income>
-					<highestEducation>{_source.highestEducation.toString()}</highestEducation>
-					<organDonor>{_source.organDonor.toString()}</organDonor>
-				</Demographics>;			
+					<Demographics xmlns="http://indivo.org/vocab/xml/documents#">
+						<dateOfBirth>{DateUtil.format(dateOfBirth, false)}</dateOfBirth>
+						<gender>{_source.gender.toString().toLowerCase()}</gender>
+						<email>{_source.emailPersonal.toString()}</email>
+						<ethnicity>{_source.ethnicity.toString()}</ethnicity>
+						<preferredLanguage>{_source.language.toString()}</preferredLanguage>
+						<Name>
+							<familyName>{_source.familyName.toString()}</familyName>
+							<givenName>{_source.givenName.toString()}</givenName>
+						</Name>
+						<Telephone>
+							<type>h</type>
+							<number>{_source.phoneNumberHome.toString()}</number>
+							<preferred>true</preferred>
+						</Telephone>
+						<Telephone>
+							<type>c</type>
+							<number>{_source.phoneNumberWork.toString()}</number>
+						</Telephone>
+						<Address>
+							<country>{_source.country.toString()}</country>
+							<city>{_source.locality.toString()}</city>
+							<postalCode>{_source.postalCode.toString()}</postalCode>
+							<region>{_source.region.toString()}</region>
+							<street>{_source.streetAddress.toString()}</street>
+						</Address>
+
+					</Demographics>;
+//			(_source.race.hasSimpleContent())}<race>{_source.race.toString()}</race>
 		}
 		
 		public function AccountDataBuilder()

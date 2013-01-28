@@ -202,7 +202,7 @@ package indivoAccountCreator
 				_externalRecordId += "-" + _source.recordSeed;
 			}
 			_admin.addEventListener(IndivoClientEvent.COMPLETE, recordCreatedHandler);
-			_admin.records_external_X_XPUT(_appId, _externalRecordId, _contactXml.toXMLString());
+			_admin.records_external_X_XPUT(_appId, _externalRecordId, _demographicsXml.toXMLString());
 		}
 		
 		private function recordCreatedHandler(event:IndivoClientEvent):void
