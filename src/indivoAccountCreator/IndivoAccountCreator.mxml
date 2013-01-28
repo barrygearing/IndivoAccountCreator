@@ -312,20 +312,27 @@
 
 			var janitorAccountSourceXml:XML = sourceXml.AccountSource.(username == JANITOR_USERNAME)[0];
 
+			var recordDeleter:RecordDeleter = new RecordDeleter();
+			recordDeleter.resultLogger = this;
+			recordDeleter.pha = pha;
+			recordDeleter.admin = _admin.clone();
+			recordDeleter.source = accountSourceXml;
+			recordDeleter.oldShareAccountId = accountSourceXml.shareAccountId.toString();
+
 			if (janitorAccountSourceXml != null && janitorAccountSourceXml.accountId != null && janitorAccountSourceXml.accountId.length() != 0)
 			{
-				var recordDeleter:RecordDeleter = new RecordDeleter();
-				recordDeleter.resultLogger = this;
-				recordDeleter.pha = pha;
-				recordDeleter.admin = _admin.clone();
-				recordDeleter.source = accountSourceXml;
-				recordDeleter.oldShareAccountId = accountSourceXml.shareAccountId.toString();
 				recordDeleter.janitorAccountId = janitorAccountSourceXml.accountId.toString();
 				recordDeleter.janitorUsername = janitorAccountSourceXml.username.toString();
 				recordDeleter.janitorPassword = janitorAccountSourceXml.password.toString();
-
-				recordDeleter.performTask();
 			}
+			else
+			{
+				recordDeleter.janitorAccountId = "janitor@records.media.mit.edu";
+				recordDeleter.janitorUsername = "janitor";
+				recordDeleter.janitorPassword = "janitor-password";
+			}
+
+			recordDeleter.performTask();
 		}
 
 		private function createOneAccount(accountSourceXml:XML, shouldCreateRecord:Boolean = true,
