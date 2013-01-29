@@ -19,7 +19,6 @@ package indivoAccountCreator
 		}
 		
 		private var _source:XML;
-		private var _contactXml:XML;
 		private var _demographicsXml:XML;
 		private var _admin:Admin;
 		private var _accountId:String;
@@ -58,16 +57,6 @@ package indivoAccountCreator
 		public function set demographicsXml(value:XML):void
 		{
 			_demographicsXml = value;
-		}
-
-		public function get contactXml():XML
-		{
-			return _contactXml;
-		}
-
-		public function set contactXml(value:XML):void
-		{
-			_contactXml = value;
 		}
 
 		public function get source():XML
@@ -202,7 +191,7 @@ package indivoAccountCreator
 				_externalRecordId += "-" + _source.recordSeed;
 			}
 			_admin.addEventListener(IndivoClientEvent.COMPLETE, recordCreatedHandler);
-			_admin.records_external_X_XPUT(_appId, _externalRecordId, _contactXml.toXMLString());
+			_admin.records_external_X_XPUT(_appId, _externalRecordId, _demographicsXml.toXMLString());
 		}
 		
 		private function recordCreatedHandler(event:IndivoClientEvent):void

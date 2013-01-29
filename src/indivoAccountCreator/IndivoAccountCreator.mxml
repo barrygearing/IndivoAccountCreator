@@ -732,7 +732,6 @@
 			_accountCreator.appId = _adminAppEmail;
 			_accountCreator.setupPhaAppId = appIdTextInput.text;
 			_accountCreator.source = _accountDataBuilder.source;
-			_accountCreator.contactXml = _accountDataBuilder.contactXml;
 			_accountCreator.demographicsXml = _accountDataBuilder.demographicsXml;
 		}
 
