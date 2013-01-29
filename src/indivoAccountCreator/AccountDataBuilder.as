@@ -7,17 +7,11 @@ package indivoAccountCreator
 		import org.indivo.client.*;
 		
 		private var _source:XML;
-		private var _contactXml:XML;
 		private var _demographicsXml:XML;
 		
 		public function get demographicsXml():XML
 		{
 			return _demographicsXml;
-		}
-
-		public function get contactXml():XML
-		{
-			return _contactXml;
 		}
 
 		public function get source():XML
@@ -44,54 +38,38 @@ package indivoAccountCreator
 			_source.appendChild(<fullName>{givenName} {familyName}</fullName>);
 			_source.appendChild(<password>{_source.username.toString()}testing454</password>);
 			
-			_contactXml =
-				<Contact xmlns="http://indivo.org/vocab/xml/documents#">
-					<name>
-						<fullName>{_source.fullName.toString()}</fullName>
-						<givenName>{givenName}</givenName>
-						<familyName>{familyName}</familyName>
-					</name>
-					<email type="personal">
-					{_source.username.toString()}@records.media.mit.edu
-					</email>
-					<email type="work">
-					{_source.username.toString()}.work@records.media.mit.edu
-					</email>
-					<address type="home">
-						<streetAddress>17 Green St</streetAddress>
-						<postalCode>02134</postalCode>
-						<locality>Allston</locality>
-						<region>Massachusetts</region>
-
-						<country>US</country>
-						<timeZone>-7GMT</timeZone>
-					</address>
-					<location type="home">
-						<latitude>46N</latitude>
-						<longitude>109W</longitude>
-					</location>
-
-					<phoneNumber type="home">8575557751</phoneNumber>
-					<phoneNumber type="work">6175557535</phoneNumber>
-					<instantMessengerName protocol="aim">{_source.username.toString()}medialab</instantMessengerName>
-				</Contact>;
-			
 			_demographicsXml =
-				<Demographics xmlns="http://indivo.org/vocab/xml/documents#">
-					<dateOfBirth>1975-07-11</dateOfBirth>
-					<dateOfDeath>2095-10-11</dateOfDeath>
-					<gender>Male</gender>
-					<ethnicity>Caucasian</ethnicity>
-					<language>EN</language>
-					<maritalStatus>Single</maritalStatus>
-					<employmentStatus>Employed</employmentStatus>
-					<employmentIndustry>Software</employmentIndustry>
-					<occupation>Developer</occupation>
-					<religion>None</religion>
-					<income>44,000 USD</income>
-					<highestEducation>University</highestEducation>
-					<organDonor>true</organDonor>
-				</Demographics>;
+					<Demographics xmlns="http://indivo.org/vocab/xml/documents#">
+					    <dateOfBirth>1939-11-15</dateOfBirth>
+					    <gender>male</gender>
+					    <email>test@fake.org</email>
+					    <ethnicity>Scottish</ethnicity>
+					    <preferredLanguage>EN</preferredLanguage>
+					    <race>caucasian</race>
+					    <Name>
+					        <familyName>Wayne</familyName>
+					        <givenName>Bruce</givenName>
+					        <middleName>Quentin</middleName>
+					        <prefix>Mr</prefix>
+					        <suffix>Jr</suffix>
+					    </Name>
+					    <Telephone>
+					        <type>h</type>
+					        <number>555-5555</number>
+					        <preferred>true</preferred>
+					    </Telephone>
+					    <Telephone>
+					        <type>c</type>
+					        <number>555-6666</number>
+					    </Telephone>
+					    <Address>
+					        <country>USA</country>
+					        <city>Gotham</city>
+					        <postalCode>90210</postalCode>
+					        <region>secret</region>
+					        <street>1007 Mountain Drive</street>
+					    </Address>
+					</Demographics>;
 		}
 		
 		private function capitalize(value:String):String
@@ -102,38 +80,6 @@ package indivoAccountCreator
 		public function buildDataFromSource(source:XML):void
 		{
 			_source = source;
-
-			_contactXml =
-				<Contact xmlns="http://indivo.org/vocab/xml/documents#">
-					<name>
-						<fullName>{_source.fullName.toString()}</fullName>
-						<givenName>{_source.givenName.toString()}</givenName>
-						<familyName>{_source.familyName.toString()}</familyName>
-					</name>
-					<email type="personal">
-						{_source.emailPersonal.toString()}
-					</email>
-					<email type="work">
-						{_source.emailWork.toString()}
-					</email>
-					<address type="home">
-						<streetAddress>{_source.streetAddress.toString()}</streetAddress>
-						<postalCode>{_source.postalCode.toString()}</postalCode>
-						<locality>{_source.locality.toString()}</locality>
-						<region>{_source.region.toString()}</region>
-
-						<country>{_source.country.toString()}</country>
-						<timeZone>{_source.timeZone.toString()}</timeZone>
-					</address>
-					<location type="home">
-						<latitude>{_source.latitudeHome.toString()}</latitude>
-						<longitude>{_source.longitudeHome.toString()}</longitude>
-					</location>
-
-					<phoneNumber type="home">{_source.phoneNumberHome.toString()}</phoneNumber>
-					<phoneNumber type="work">{_source.phoneNumberWork.toString()}</phoneNumber>
-					<instantMessengerName protocol="aim">{_source.instantMessengerName.toString()}</instantMessengerName>
-				</Contact>;
 
 			var dateOfBirthString:String = _source.dateOfBirth.toString();
 			var dateOfBirth:Date = DateUtil.parseW3CDTF(dateOfBirthString);
