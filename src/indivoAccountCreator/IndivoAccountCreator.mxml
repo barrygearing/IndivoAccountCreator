@@ -959,6 +959,13 @@
 							if (selectedItem.mode.length() == 1 && selectedItem.mode.hasSimpleContent())
 							{
 								settingsXml.mode = selectedItem.mode.toString();
+
+								if (selectedItem.shareAccountId.length() == 1 && selectedItem.shareAccountId.hasSimpleContent())
+								{
+									var shareWithAccountId:String =	selectedItem.shareAccountId.toString();
+									var shareAccountIds:Array = shareWithAccountId.split(",");
+									settingsXml.primaryClinicianTeamMember = shareAccountIds[0];
+								}
 							}
 							settingsXml.indivoServerBaseURL = _baseUrl;
 
