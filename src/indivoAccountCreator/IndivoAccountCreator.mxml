@@ -965,6 +965,12 @@
 									var shareWithAccountId:String =	selectedItem.shareAccountId.toString();
 									var shareAccountIds:Array = shareWithAccountId.split(",");
 									settingsXml.primaryClinicianTeamMember = shareAccountIds[0];
+
+									settingsXml.clinicianTeamMembers = "";
+									for each (var clinicianAccountId:String in shareAccountIds)
+									{
+										settingsXml.clinicianTeamMembers[0].appendChild(<clinicianTeamMember>{clinicianAccountId}</clinicianTeamMember>);
+									}
 								}
 							}
 							settingsXml.indivoServerBaseURL = _baseUrl;
