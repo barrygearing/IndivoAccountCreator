@@ -2,67 +2,18 @@ package indivoAccountCreator
 {
 
 	import flash.events.Event;
-	import flash.events.EventDispatcher;
-import flash.net.URLVariables;
-import flash.utils.getQualifiedClassName;
 
 	import indivoAccountCreator.tasks.ChangeOwnerTask;
-	import indivoAccountCreator.tasks.DeleteAllSharesTask;
-
-	import indivoAccountCreator.tasks.DeleteShareTask;
 	import indivoAccountCreator.tasks.GetSharesTask;
 
-	import mx.logging.ILogger;
-import mx.logging.Log;
-	import mx.utils.StringUtil;
-	import mx.utils.URLUtil;
-
-import org.indivo.client.*;
-
-	public class RecordDeleter extends PhrTaskPerformerBase
+	public class RecordDeleter extends SharesDeleterBase
 	{
 		public function RecordDeleter()
 		{
-			_logger = Log.getLogger(getQualifiedClassName(this).replace("::", "."));
 		}
-		
-		protected var _logger:ILogger;
+
 		private var _janitorAccountId:String;
 		private var _oldShareAccountId:String;
-		private var _janitorUsername:String;
-		private var _janitorPassword:String;
-		private var _janitorAccessKey:String;
-		private var _janitorAccessSecret:String;
-
-		public override function performTask():void
-		{
-			updateStatus("Performing login.");
-
-			_admin.addEventListener(IndivoClientEvent.COMPLETE, loginCompleteHandler);
-			_admin.addEventListener(IndivoClientEvent.ERROR, indivoClientEventErrorHandler);
-
-			_admin.create_session(_janitorUsername, _janitorPassword);
-		}
-
-		private function loginCompleteHandler(event:IndivoClientEvent):void
-		{
-			_admin.removeEventListener(IndivoClientEvent.COMPLETE, loginCompleteHandler);
-
-			var responseText:String = event.response.toString();
-
-			var appInfo:Object = URLUtil.stringToObject(responseText, "&");
-
-			if (appInfo.hasOwnProperty("oauth_token"))
-			{
-				_janitorAccessKey = appInfo["oauth_token"];
-				_janitorAccessSecret = appInfo["oauth_token_secret"];
-
-				updateStatus("Login successful");
-				performNextSubTask();
-			}
-			else
-				abortOnError("Unexpected result: " + event.response.toXMLString());
-		}
 
 		override protected function performNextSubTask():void
 		{
@@ -76,36 +27,12 @@ import org.indivo.client.*;
 			//assertSourceRecordProperties();
 
 			var performer:AsyncPerformer = new AsyncPerformer();
-			performer.addEventListener(Event.COMPLETE, performer_completeHandler);
+			performer.addEventListener(Event.COMPLETE, performer_deleteRecordCompleteHandler);
 			addChangeOwnerTask(performer);
 			var getSharesTask:GetSharesTask = addGetSharesTask(performer);
 			addDeleteAllSharesTask(performer, getSharesTask);
 
 			performer.performTasks();
-		}
-
-		private function addDeleteAllSharesTask(performer:AsyncPerformer, getSharesTask:GetSharesTask):void
-		{
-			var task:DeleteAllSharesTask = new DeleteAllSharesTask(getSharesTask);
-			task.pha = pha.clone();
-			task.admin = admin.clone();
-			task.recordId = _source.recordId;
-			task.accessKey = _janitorAccessKey;
-			task.accessSecret = _janitorAccessSecret;
-			task.performer = performer;
-			performer.tasks.push(task);
-		}
-
-		private function addGetSharesTask(performer:AsyncPerformer):GetSharesTask
-		{
-			var task:GetSharesTask = new GetSharesTask();
-			task.pha = pha.clone();
-			task.recordId = _source.recordId;
-			task.accessKey = _janitorAccessKey;
-			task.accessSecret = _janitorAccessSecret;
-			task.performer = performer;
-			performer.tasks.push(task);
-			return task;
 		}
 
 		private function addChangeOwnerTask(performer:AsyncPerformer):void
@@ -121,7 +48,7 @@ import org.indivo.client.*;
 			performer.tasks.push(task);
 		}
 		
-		private function performer_completeHandler(event:Event):void
+		private function performer_deleteRecordCompleteHandler(event:Event):void
 		{
 			updateStatus("Record deleted.");
 
@@ -154,24 +81,5 @@ import org.indivo.client.*;
 			_janitorAccountId = value;
 		}
 
-		public function get janitorUsername():String
-		{
-			return _janitorUsername;
-		}
-
-		public function set janitorUsername(value:String):void
-		{
-			_janitorUsername = value;
-		}
-
-		public function get janitorPassword():String
-		{
-			return _janitorPassword;
-		}
-
-		public function set janitorPassword(value:String):void
-		{
-			_janitorPassword = value;
-		}
 	}
 }

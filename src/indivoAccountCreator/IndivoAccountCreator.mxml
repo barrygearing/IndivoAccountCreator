@@ -10,6 +10,8 @@
 		<![CDATA[
 		import com.daveoncode.logging.LogFileTarget;
 
+		import indivoAccountCreator.SharesDeleter;
+
 		import mx.controls.Alert;
 		import mx.core.Window;
 		import mx.events.DataGridEvent;
@@ -306,6 +308,21 @@
 			}
 		}
 
+		private function deleteShares():void
+		{
+			if (!validateSelectedItem())
+				return;
+
+			if (accountsDataGrid.selectedItem is XML)
+			{
+				var selectedItem:XML = accountsDataGrid.selectedItem as XML;
+				if (selectedItem.recordId == null || selectedItem.recordId.length() == 0 || selectedItem.recordId.toString() == "")
+					selectedItem.status = "No action taken. Record ID for selected row must not be empty.";
+				else
+					deleteOneShares(selectedItem);
+			}
+		}
+
 		private function deleteOneRecord(accountSourceXml:XML):void
 		{
 			var pha:Pha = new Pha(_phaConsumerKey, _phaConsumerSecret, _baseUrl);
@@ -333,6 +350,22 @@
 			}
 
 			recordDeleter.performTask();
+		}
+
+		private function deleteOneShares(accountSourceXml:XML):void
+		{
+			var pha:Pha = new Pha(_phaConsumerKey, _phaConsumerSecret, _baseUrl);
+
+			var sharesDeleter:SharesDeleter = new SharesDeleter();
+			sharesDeleter.resultLogger = this;
+			sharesDeleter.pha = pha;
+			sharesDeleter.admin = _admin.clone();
+			sharesDeleter.source = accountSourceXml;
+
+			sharesDeleter.janitorUsername = accountSourceXml.username.toString();
+			sharesDeleter.janitorPassword = accountSourceXml.password.toString();
+
+			sharesDeleter.performTask();
 		}
 
 		private function createOneAccount(accountSourceXml:XML, shouldCreateRecord:Boolean = true,
@@ -785,6 +818,9 @@
 					break;
 				case "shareRecord":
 					shareRecord();
+					break;
+				case "deleteShares":
+					deleteShares();
 					break;
 				case "createDemographics":
 					createDemographics();
@@ -1270,6 +1306,7 @@
 					<menuitem label="Delete Record" command="deleteRecord" key="r" shift="true"/>
 					<menuitem type="separator"/>
 					<menuitem label="Share Record" command="shareRecord"/>
+					<menuitem label="Un-share Record" command="deleteShares"/>
 				</menu>
 				<menu label="Documents">
 					<menuitem label="Create Documents" command="createDocuments" key="d"/>
