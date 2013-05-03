@@ -5,6 +5,7 @@ package indivoAccountCreator
 
 	import mx.logging.ILogger;
 	import mx.logging.Log;
+	import mx.utils.StringUtil;
 
 	public class AccountCreator extends EventDispatcher
 	{
@@ -147,7 +148,12 @@ package indivoAccountCreator
 			_accountId = _source.accountId.toString();
 			
 			_admin.addEventListener(IndivoClientEvent.COMPLETE, passwordSetHandler);
-			
+
+			if (_source.password.length() == 0 || _source.password.toString() == null || _source.password.toString() == "")
+			{
+				_source.password = createRandomPassword(15);
+			}
+
 			var params:URLVariables = new URLVariables;
 			params["system"] = "password";
 			params["username"] = _source.username.toString();
@@ -156,7 +162,22 @@ package indivoAccountCreator
 			//				_admin.accounts_X_authsystems_POST(_accountId, "system=password&username=user2&password=user2testing454");
 			_admin.accounts_X_authsystems_POST(_accountId, params.toString());
 		}
-		
+
+		public function createRandomPassword(hashLen:uint, includeLowercase:Boolean = true, includeNumbers:Boolean = true, includeUppercase:Boolean = false):String {
+			var strHash:String = "";
+			if (includeLowercase) strHash += "abchefghjkmnpqrstuvwxyz";
+			if (includeNumbers) strHash += "0123456789";
+			if (includeUppercase) strHash += "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+			var maskPick:Number;
+			var passwordStr:String = "";
+			var maskLen:uint = strHash.length;
+			for (var i:uint = 0; i < hashLen; i++) {
+				maskPick = Math.floor(Math.random() * maskLen);
+				passwordStr += strHash.charAt(maskPick);
+			}
+			return passwordStr;
+		}
+
 		private function passwordSetHandler(event:IndivoClientEvent):void
 		{
 			_admin.removeEventListener(IndivoClientEvent.COMPLETE, passwordSetHandler);
